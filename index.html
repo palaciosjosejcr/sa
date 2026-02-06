@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>HMI – Electroválvulas ESP32</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef1f4;
+  text-align: center;
+  padding: 20px;
+}
+
+.hmi {
+  background: white;
+  padding: 25px;
+  max-width: 450px;
+  margin: auto;
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.15);
+}
+
+.indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin: 6px auto;
+  background: #6c757d;
+}
+
+.on { background: #28a745; }
+.off { background: #dc3545; }
+
+select, button {
+  width: 90%;
+  padding: 14px;
+  font-size: 16px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: none;
+}
+
+button {
+  cursor: pointer;
+  color: white;
+}
+
+.btn-connect { background: #007bff; }
+.btn-on { background: #28a745; }
+.btn-off { background: #dc3545; }
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+</style>
+</head>
+
+<body>
+
+<h2>HMI – Control de Electroválvulas</h2>
+
+<div class="hmi">
+
+  <p>Seleccionar ESP32</p>
+  <select id="equipo">
+    <option value="">-- Seleccione --</option>
+    <option value="esp32_1">ESP32 Línea 1</option>
+    <option value="esp32_2">ESP32 Línea 2</option>
+    <option value="esp32_3">ESP32 Línea 3</option>
+  </select>
+
+  <p>Conexión</p>
+  <div id="connLed" class="indicator"></div>
+
+  <p>Válvula</p>
+  <div id="valveLed" class="indicator"></div>
+
+  <button class="btn-connect" onclick="conectar()">CONECTAR</button>
+  <button class="btn-on" onclick="encender()" disabled>ENCENDER</button>
+  <button class="btn-off" onclick="apagar()" disabled>APAGAR</button>
+
+</div>
+
+<script>
+let client = null;
+let topicCmd = "";
+let topicEstado = "";
+
+const broker = "wss://test.mosquitto.org:8081";
+
+const connLed = document.getElementById("connLed");
+const valveLed = document.getElementById("valveLed");
+const btnOn = document.querySelector(".btn-on");
+const btnOff = document.querySelector(".btn-off");
+
+function conectar() {
+  const equipo = document.getElementById("equipo").value;
+  if (equipo === "") {
+    alert("Seleccione un ESP32");
+    return;
+  }
+
+  topicCmd = `${equipo}/valvula/cmd`;
+  topicEstado = `${equipo}/valvula/estado`;
+
+  client = mqtt.connect(broker);
+
+  client.on("connect", () => {
+    connLed.className = "indicator on";
+    btnOn.disabled = false;
+    btnOff.disabled = false;
+    client.subscribe(topicEstado);
+  });
+
+  client.on("message", (topic, message) => {
+    if (topic === topicEstado) {
+      valveLed.className =
+        message.toString() === "1" ? "indicator on" : "indicator off";
+    }
+  });
+
+  client.on("close", () => {
+    connLed.className = "indicator";
+    btnOn.disabled = true;
+    btnOff.disabled = true;
+  });
+}
+
+function encender() {
+  if (client) client.publish(topicCmd, "1");
+}
+
+function apagar() {
+  if (client) client.publish(topicCmd, "0");
+}
+</script>
+
+</body>
+</html>
